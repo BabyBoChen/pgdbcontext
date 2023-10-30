@@ -10,42 +10,23 @@ import (
 func main() {
 	db, err := New(connStr)
 	defer db.Dispose()
+
+	var repo *DbRepository
 	if err == nil {
-		var dt *data.DataTable
-		dt, err = db.Query(`SELECT A.column_name::varchar as fieldname
-		,pg_catalog.col_description(E.oid,A.ordinal_position) as shortdesc
-		,coalesce(A.character_maximum_length,0)+coalesce(A.numeric_precision,0) as datalength
-		,coalesce(A.numeric_scale,0) as numericscale 
-		,CASE WHEN A.is_nullable='YES'
-			THEN true
-			ELSE false
-			END AS isallownull
-		,A.column_default as defaultvalue
-		,CASE WHEN constraint_type='PRIMARY KEY'
-			THEN true
-			ELSE false
-			END AS isprimarykey
-		,case when A.is_identity='YES'
-			then true
-			else false
-			end as isidentity
-		FROM information_schema.columns AS A
-		LEFT JOIN information_schema.constraint_column_usage AS B ON A.table_schema=B.table_schema AND A.table_name=B.table_name AND A.column_name=B.column_name
-		LEFT JOIN information_schema.table_constraints AS C ON B.table_schema=C.table_schema AND B.table_name=C.table_name AND B.constraint_name=C.constraint_name
-		LEFT JOIN pg_catalog.pg_namespace AS D ON D.nspname=A.table_schema
-		LEFT JOIN pg_catalog.pg_class AS E ON E.relnamespace=D.oid AND E.relname=A.table_name
-		WHERE A.table_schema='public' AND A.table_name='dish';`)
-		if err == nil {
-			rows := *dt.Rows
-			for i := 0; i < len(rows); i++ {
-				cells := *rows[i].Cells
-				for j := 0; j < len(cells); j++ {
-					fmt.Print(cells[j].Column.ColumnName)
-					fmt.Print(": ")
-					fmt.Print(cells[j].Value(nil))
-					fmt.Println(", ")
-				}
-				fmt.Println("===============")
+		repo, err = db.GetRepository("dish")
+	}
+
+	var dt *data.DataTable
+	if err == nil {
+		dt, err = repo.Select(" dish_id=$1 ", "c9313e1b-4f03-431d-8987-5a96aa050fad")
+	}
+
+	if err == nil {
+		for i := 0; i < len(*dt.Rows); i++ {
+			row := (*dt.Rows)[i]
+			for j := 0; j < len(*row.Cells); j++ {
+				cell := (*row.Cells)[j]
+				fmt.Println(cell.Value(nil))
 			}
 		}
 	}

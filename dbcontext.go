@@ -3,13 +3,15 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"pgsql/data"
 )
 
 type DbContext struct {
-	connStr     string
-	Conn        *sql.DB
-	Transaction *sql.Tx
+	connStr       string
+	Conn          *sql.DB
+	Transaction   *sql.Tx
+	DefaultSchema string
 }
 
 func New(connStr string) (*DbContext, error) {
@@ -19,6 +21,7 @@ func New(connStr string) (*DbContext, error) {
 		var db DbContext
 		db.connStr = connStr
 		db.Conn = conn
+		db.DefaultSchema = "public"
 		ptrDb = &db
 	} else {
 		ptrDb = nil
@@ -42,8 +45,10 @@ func (db *DbContext) Query(cmdTxt string, args ...interface{}) (*data.DataTable,
 	var err error
 
 	db.beginTransction()
+
 	var rows *sql.Rows
 	rows, err = db.Transaction.Query(cmdTxt, args...)
+
 	if err == nil {
 		var dataTable data.DataTable
 		dataRows := make([]data.DataRow, 0)
@@ -74,12 +79,45 @@ func (db *DbContext) Query(cmdTxt string, args ...interface{}) (*data.DataTable,
 				r := *dataTable.Rows
 				r = append(r, dataRow)
 				dataTable.Rows = &r
+			} else {
+				break
 			}
 		}
-		dt = &dataTable
+
+		if err == nil {
+			dt = &dataTable
+		}
 	}
 
 	return dt, err
+}
+
+type DbRepository struct {
+	db        *DbContext
+	TableName string
+	tbModel   *data.DataTable
+}
+
+func (db *DbContext) GetRepository(tableName string) (*DbRepository, error) {
+	var repoPtr *DbRepository
+	var repo DbRepository
+	repo.TableName = tableName
+	repo.db = db
+	schema, err := db.Query(data.SPGetTbFldInfos, db.DefaultSchema, tableName)
+	if err == nil {
+		repo.tbModel = schema
+		repoPtr = &repo
+	}
+	return repoPtr, err
+}
+
+func (repo *DbRepository) Select(whereSql string, args ...interface{}) (*data.DataTable, error) {
+	cmdTxt := "SELECT * FROM \"%s\".\"%s\" "
+	cmdTxt = fmt.Sprintf(cmdTxt, repo.db.DefaultSchema, repo.TableName)
+	if len(whereSql) > 0 {
+		cmdTxt = fmt.Sprintf("%s WHERE (%s)", cmdTxt, whereSql)
+	}
+	return repo.db.Query(cmdTxt, args...)
 }
 
 func (db *DbContext) Commit() error {

@@ -20,4 +20,4 @@ LEFT JOIN information_schema.constraint_column_usage AS B ON A.table_schema=B.ta
 LEFT JOIN information_schema.table_constraints AS C ON B.table_schema=C.table_schema AND B.table_name=C.table_name AND B.constraint_name=C.constraint_name
 LEFT JOIN pg_catalog.pg_namespace AS D ON D.nspname=A.table_schema
 LEFT JOIN pg_catalog.pg_class AS E ON E.relnamespace=D.oid AND E.relname=A.table_name
-WHERE A.table_schema='public' AND A.table_name='dish';
+WHERE A.table_schema=$1 AND A.table_name=$2;
