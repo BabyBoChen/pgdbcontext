@@ -3,8 +3,6 @@ package main
 import (
 	"database/sql"
 	"errors"
-	"fmt"
-	"pgsql/data"
 )
 
 type DbContext struct {
@@ -14,7 +12,7 @@ type DbContext struct {
 	DefaultSchema string
 }
 
-func New(connStr string) (*DbContext, error) {
+func NewDbContext(connStr string) (*DbContext, error) {
 	var ptrDb *DbContext
 	conn, err := sql.Open("postgres", connStr)
 	if err == nil {
@@ -39,9 +37,9 @@ func (db *DbContext) beginTransction() error {
 	return err
 }
 
-func (db *DbContext) Query(cmdTxt string, args ...interface{}) (*data.DataTable, error) {
+func (db *DbContext) Query(cmdTxt string, args ...interface{}) (*DataTable, error) {
 
-	var dt *data.DataTable
+	var dt *DataTable
 	var err error
 
 	db.beginTransction()
@@ -50,22 +48,22 @@ func (db *DbContext) Query(cmdTxt string, args ...interface{}) (*data.DataTable,
 	rows, err = db.Transaction.Query(cmdTxt, args...)
 
 	if err == nil {
-		var dataTable data.DataTable
-		dataRows := make([]data.DataRow, 0)
+		var dataTable DataTable
+		dataRows := make([]DataRow, 0)
 		dataTable.Rows = &dataRows
 
 		for rows.Next() {
 			colTypes, _ := rows.ColumnTypes()
 			colNames, _ := rows.Columns()
 
-			var dataRow data.DataRow
-			cells := make([]data.DataCell, len(colTypes))
+			var dataRow DataRow
+			cells := make([]DataCell, len(colTypes))
 			cellValuePtrs := make([]interface{}, len(colTypes))
 			dataRow.Cells = &cells
-			dataRow.RowState = data.Unchanged
+			dataRow.RowState = Unchanged
 
 			for i := 0; i < len(cells); i++ {
-				cell := data.CreateEmptyCell(colNames[i], colTypes[i].DatabaseTypeName())
+				cell := CreateEmptyCell(colNames[i], colTypes[i].DatabaseTypeName())
 				cells[i] = *cell
 				cellValuePtrs[i] = cell.GetCellValuePtr()
 			}
@@ -92,32 +90,17 @@ func (db *DbContext) Query(cmdTxt string, args ...interface{}) (*data.DataTable,
 	return dt, err
 }
 
-type DbRepository struct {
-	db        *DbContext
-	TableName string
-	tbModel   *data.DataTable
-}
-
 func (db *DbContext) GetRepository(tableName string) (*DbRepository, error) {
 	var repoPtr *DbRepository
 	var repo DbRepository
 	repo.TableName = tableName
 	repo.db = db
-	schema, err := db.Query(data.SPGetTbFldInfos, db.DefaultSchema, tableName)
+	schema, err := db.Query(SPGetTbFldInfos, db.DefaultSchema, tableName)
 	if err == nil {
 		repo.tbModel = schema
 		repoPtr = &repo
 	}
 	return repoPtr, err
-}
-
-func (repo *DbRepository) Select(whereSql string, args ...interface{}) (*data.DataTable, error) {
-	cmdTxt := "SELECT * FROM \"%s\".\"%s\" "
-	cmdTxt = fmt.Sprintf(cmdTxt, repo.db.DefaultSchema, repo.TableName)
-	if len(whereSql) > 0 {
-		cmdTxt = fmt.Sprintf("%s WHERE (%s)", cmdTxt, whereSql)
-	}
-	return repo.db.Query(cmdTxt, args...)
 }
 
 func (db *DbContext) Commit() error {

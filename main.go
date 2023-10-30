@@ -2,13 +2,12 @@ package main
 
 import (
 	"fmt"
-	"pgsql/data"
 
 	_ "github.com/lib/pq"
 )
 
 func main() {
-	db, err := New(connStr)
+	db, err := NewDbContext(connStr)
 	defer db.Dispose()
 
 	var repo *DbRepository
@@ -16,7 +15,7 @@ func main() {
 		repo, err = db.GetRepository("dish")
 	}
 
-	var dt *data.DataTable
+	var dt *DataTable
 	if err == nil {
 		dt, err = repo.Select(" dish_id=$1 ", "c9313e1b-4f03-431d-8987-5a96aa050fad")
 	}
