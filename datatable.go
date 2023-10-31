@@ -1,11 +1,15 @@
 package main
 
-import "github.com/google/uuid"
+import (
+	"errors"
+
+	"github.com/google/uuid"
+)
 
 type DataTable struct {
 	TableName string
-	Columns   *[]DataColumn
-	Rows      *[]DataRow
+	//Columns   *[]DataColumn
+	Rows *[]DataRow
 }
 
 type DataColumn struct {
@@ -16,6 +20,21 @@ type DataColumn struct {
 type DataRow struct {
 	Cells    *[]DataCell
 	RowState DataRowState
+}
+
+func (row *DataRow) GetCell(colName string) (DataCell, error) {
+	var cell DataCell
+	var err error
+	for i := 0; i < len(*row.Cells); i++ {
+		c := (*row.Cells)[i]
+		if c.Column.ColumnName == colName {
+			cell = c
+		}
+	}
+	if cell.Column == nil {
+		err = errors.New("column not found")
+	}
+	return cell, err
 }
 
 type DataRowState int
@@ -66,27 +85,3 @@ func (cell *DataCell) Value(newValue interface{}) interface{} {
 func (cell *DataCell) GetOldValue() interface{} {
 	return cell.oldValue
 }
-
-const SPGetTbFldInfos string = `SELECT A.column_name::varchar as fieldname
-,pg_catalog.col_description(E.oid,A.ordinal_position) as shortdesc
-,coalesce(A.character_maximum_length,0)+coalesce(A.numeric_precision,0) as datalength
-,coalesce(A.numeric_scale,0) as numericscale 
-,CASE WHEN A.is_nullable='YES'
-	THEN true
-	ELSE false
-	END AS isallownull
-,A.column_default as defaultvalue
-,CASE WHEN constraint_type='PRIMARY KEY'
-	THEN true
-	ELSE false
-	END AS isprimarykey
-,case when A.is_identity='YES'
-	then true
-	else false
-	end as isidentity
-FROM information_schema.columns AS A
-LEFT JOIN information_schema.constraint_column_usage AS B ON A.table_schema=B.table_schema AND A.table_name=B.table_name AND A.column_name=B.column_name
-LEFT JOIN information_schema.table_constraints AS C ON B.table_schema=C.table_schema AND B.table_name=C.table_name AND B.constraint_name=C.constraint_name
-LEFT JOIN pg_catalog.pg_namespace AS D ON D.nspname=A.table_schema
-LEFT JOIN pg_catalog.pg_class AS E ON E.relnamespace=D.oid AND E.relname=A.table_name
-WHERE A.table_schema=$1 AND A.table_name=$2;`
