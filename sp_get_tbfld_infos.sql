@@ -1,5 +1,6 @@
 SELECT A.column_name::varchar as fieldname
 ,pg_catalog.col_description(E.oid,A.ordinal_position) as shortdesc
+,A.udt_name::varchar AS datatype
 ,coalesce(A.character_maximum_length,0)+coalesce(A.numeric_precision,0) as datalength
 ,coalesce(A.numeric_scale,0) as numericscale 
 ,CASE WHEN A.is_nullable='YES'
