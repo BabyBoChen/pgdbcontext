@@ -8,13 +8,23 @@ import (
 
 type DataTable struct {
 	TableName string
-	//Columns   *[]DataColumn
-	Rows *[]DataRow
+	Columns   *[]DataColumn
+	Rows      *[]DataRow
 }
 
 type DataColumn struct {
 	ColumnName string
 	DataType   string
+}
+
+func ContainsColumn(cols []DataColumn, colName string) (bool) {
+	hasCol := false
+	for _, col := range cols {
+        if col.ColumnName == colName {
+            hasCol = true
+        }
+    }
+    return hasCol
 }
 
 type DataRow struct {
@@ -32,7 +42,7 @@ func (row *DataRow) GetCell(colName string) (DataCell, error) {
 		}
 	}
 	if cell.Column == nil {
-		err = errors.New("column not found")
+		err = errors.New("cell not found")
 	}
 	return cell, err
 }
@@ -72,14 +82,15 @@ func (cell *DataCell) DerefValue() {
 	cell.cellValue = val
 }
 
-func (cell *DataCell) Value(newValue interface{}) interface{} {
-	if newValue != nil {
-		cell.cellValue = newValue
-		if cell.Row.RowState == Unchanged {
-			cell.Row.RowState = Modified
-		}
-	}
+func (cell *DataCell) GetValue() interface{} {
 	return cell.cellValue
+}
+
+func (cell *DataCell) SetValue(newValue interface{}) {
+	cell.cellValue = newValue
+	if cell.Row.RowState == Unchanged {
+		cell.Row.RowState = Modified
+	}
 }
 
 func (cell *DataCell) GetOldValue() interface{} {
