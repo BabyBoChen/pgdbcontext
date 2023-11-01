@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"pgsql/utils"
 )
 
 type DbRepository struct {
@@ -48,12 +50,12 @@ func (repo *DbRepository) Insert(cellValues map[string]interface{}) (map[string]
 		row := (*repo.tbModel.Rows)[i]
 		cell, cellErr := row.GetCell("isidentity")
 		if cellErr == nil {
-			if cell.Value(nil) == true {
+			if cell.GetValue() == true {
 				if len(idCols) > 0 {
 					idCols += ", "
 				}
 				idColCell, _ := row.GetCell("fieldname")
-				idCols += fmt.Sprintf("\"%s\"", idColCell.Value(nil))
+				idCols += fmt.Sprintf("\"%s\"", idColCell.GetValue())
 			}
 		} else {
 			err = cellErr
@@ -74,10 +76,86 @@ func (repo *DbRepository) Insert(cellValues map[string]interface{}) (map[string]
 			row := (*dt.Rows)[0]
 			for i := range *row.Cells {
 				cell := (*row.Cells)[i]
-				lastInsertedId[cell.Column.ColumnName] = cell.Value(nil)
+				lastInsertedId[cell.Column.ColumnName] = cell.GetValue()
 			}
 		}
 	}
 
 	return lastInsertedId, err
+}
+
+func (repo *DbRepository) Update(cellValues map[string]interface{}) (error) {
+	var err error
+
+	var pkCol DataColumn
+	pkCol, err = repo.getPrimaryKeyColumn()
+
+	if err == nil {
+		if !utils.HasKey(cellValues, pkCol.ColumnName) {
+			err = errors.New("primary key column was not found in provided cellvalues")
+		}
+	}
+
+	setters := ""	
+	colCnt := 0
+	vals := make([]interface{}, 0)
+	if err == nil {
+		for colName, val := range cellValues {
+			if colName != pkCol.ColumnName {
+				colCnt += 1
+				if colCnt > 1 {
+					setters += ", ";
+				}
+				setters += fmt.Sprintf("\"%s\"=$%d", colName, colCnt)
+				vals = append(vals, val)
+			}
+		}
+		if len(setters) == 0 {
+			err = errors.New("no set clause in this operation")
+		}
+	}	
+
+	whereSql := ""
+	if err == nil {
+		colCnt += 1
+		whereSql = fmt.Sprintf("\"%s\"=$%d", pkCol.ColumnName, colCnt)
+		vals = append(vals, cellValues[pkCol.ColumnName])
+
+		cmdTxt := "UPDATE \"%s\".\"%s\" SET %s WHERE %s";
+		cmdTxt = fmt.Sprintf(cmdTxt, repo.db.DefaultSchema, repo.TableName, setters, whereSql)
+		_, err = repo.db.Query(cmdTxt, vals...)
+	}
+
+	return err
+}
+
+func (repo *DbRepository) getPrimaryKeyColumn() (DataColumn, error) {
+	
+	var pkCol DataColumn
+	var err error
+
+	hasPkCol := false
+
+	for i := 0; i < len(*repo.tbModel.Rows); i++ {
+		row := (*repo.tbModel.Rows)[i]
+		cell, err := row.GetCell("isprimarykey")
+		if err == nil && cell.GetValue() == true {
+			hasPkCol = true
+			var cellFieldName DataCell
+			var cellDataType DataCell
+			cellFieldName, err = row.GetCell("fieldname")
+			if err == nil {
+				pkCol.ColumnName = cellFieldName.GetValue().(string)
+				cellDataType, err = row.GetCell("datatype")
+			}
+			if err == nil {
+				pkCol.DataType = cellDataType.GetValue().(string)
+			}
+			break
+		}
+	}
+	if !hasPkCol {
+		err = fmt.Errorf("table \"%s\" does not have a primary key constraint", repo.TableName)
+	}
+	return pkCol, err
 }
