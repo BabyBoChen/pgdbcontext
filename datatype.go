@@ -24,3 +24,11 @@ func CreateEmptyCell(colName string, dbType string) *DataCell {
 	cell.ptrCellValue = ptr
 	return &cell
 }
+
+func ConvertDbValueToGoValue(cellValue interface{}, dbType string) interface{} {
+	goVal := cellValue
+	if dbType == "UUID" {
+		goVal = (cellValue.(uuid.UUID)).String()
+	}
+	return goVal
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 
 	_ "github.com/lib/pq"
@@ -15,13 +16,13 @@ func main() {
 		repo, err = db.GetRepository("dish")
 	}
 
-	if err == nil {
-		toUpdate := make(map[string]interface{})
-		toUpdate["dish_id"] = "e90ba433-4181-4945-b1e5-3d2235bfef9d"
-		toUpdate["unit_price"] = 75
-		err = repo.Update(toUpdate)
-		db.Commit()
-	}
+	// if err == nil {
+	// 	toUpdate := make(map[string]interface{})
+	// 	toUpdate["dish_id"] = "e90ba433-4181-4945-b1e5-3d2235bfef9d"
+	// 	toUpdate["unit_price"] = 75
+	// 	err = repo.Update(toUpdate)
+	// 	db.Commit()
+	// }
 
 	// var lastInsertedId map[string]interface{}
 	// if err == nil {
@@ -39,18 +40,33 @@ func main() {
 
 	var dt *DataTable
 	if err == nil {
-		dt, err = repo.Select("",)
+		dt, err = repo.Select("title=$1", "鮭魚壽司")
 	}
 
 	if err == nil {
-		for i := 0; i < len(*dt.Rows); i++ {
-			row := (*dt.Rows)[i]
-			for j := 0; j < len(*row.Cells); j++ {
-				cell := (*row.Cells)[j]
-				fmt.Println(cell.GetValue())
-			}
+		if len(*dt.Rows) == 1 {
+			row := (*dt.Rows)[0]
+			rowMap := row.ToMap()
+			rowMap["unit_price"] = 30.00
+			err = repo.Delete(rowMap)
+		} else {
+			err = errors.New("not found")
 		}
 	}
+
+	if err == nil {
+		err = db.Commit()
+	}
+
+	// if err == nil {
+	// 	for i := 0; i < len(*dt.Rows); i++ {
+	// 		row := (*dt.Rows)[i]
+	// 		for j := 0; j < len(*row.Cells); j++ {
+	// 			cell := (*row.Cells)[j]
+	// 			fmt.Println(cell.GetValue())
+	// 		}
+	// 	}
+	// }
 
 	if err != nil {
 		fmt.Println(err)

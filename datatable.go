@@ -17,14 +17,14 @@ type DataColumn struct {
 	DataType   string
 }
 
-func ContainsColumn(cols []DataColumn, colName string) (bool) {
+func ContainsColumn(cols []DataColumn, colName string) bool {
 	hasCol := false
 	for _, col := range cols {
-        if col.ColumnName == colName {
-            hasCol = true
-        }
-    }
-    return hasCol
+		if col.ColumnName == colName {
+			hasCol = true
+		}
+	}
+	return hasCol
 }
 
 type DataRow struct {
@@ -32,7 +32,7 @@ type DataRow struct {
 	RowState DataRowState
 }
 
-func (row *DataRow) GetCell(colName string) (DataCell, error) {
+func (row DataRow) GetCell(colName string) (DataCell, error) {
 	var cell DataCell
 	var err error
 	for i := 0; i < len(*row.Cells); i++ {
@@ -45,6 +45,15 @@ func (row *DataRow) GetCell(colName string) (DataCell, error) {
 		err = errors.New("cell not found")
 	}
 	return cell, err
+}
+
+func (row DataRow) ToMap() map[string]interface{} {
+	dict := make(map[string]interface{})
+	for i := 0; i < len(*row.Cells); i++ {
+		c := (*row.Cells)[i]
+		dict[c.Column.ColumnName] = c.GetValue()
+	}
+	return dict
 }
 
 type DataRowState int
@@ -83,7 +92,7 @@ func (cell *DataCell) DerefValue() {
 }
 
 func (cell *DataCell) GetValue() interface{} {
-	return cell.cellValue
+	return ConvertDbValueToGoValue(cell.cellValue, cell.Column.DataType)
 }
 
 func (cell *DataCell) SetValue(newValue interface{}) {

@@ -84,7 +84,7 @@ func (repo *DbRepository) Insert(cellValues map[string]interface{}) (map[string]
 	return lastInsertedId, err
 }
 
-func (repo *DbRepository) Update(cellValues map[string]interface{}) (error) {
+func (repo *DbRepository) Update(cellValues map[string]interface{}) error {
 	var err error
 
 	var pkCol DataColumn
@@ -96,15 +96,20 @@ func (repo *DbRepository) Update(cellValues map[string]interface{}) (error) {
 		}
 	}
 
-	setters := ""	
+	var idCols []DataColumn
+	if err == nil {
+		idCols, err = repo.getIdentityColumns()
+	}
+
+	setters := ""
 	colCnt := 0
 	vals := make([]interface{}, 0)
 	if err == nil {
 		for colName, val := range cellValues {
-			if colName != pkCol.ColumnName {
+			if colName != pkCol.ColumnName && !ContainsColumn(idCols, colName) {
 				colCnt += 1
 				if colCnt > 1 {
-					setters += ", ";
+					setters += ", "
 				}
 				setters += fmt.Sprintf("\"%s\"=$%d", colName, colCnt)
 				vals = append(vals, val)
@@ -113,7 +118,7 @@ func (repo *DbRepository) Update(cellValues map[string]interface{}) (error) {
 		if len(setters) == 0 {
 			err = errors.New("no set clause in this operation")
 		}
-	}	
+	}
 
 	whereSql := ""
 	if err == nil {
@@ -121,7 +126,7 @@ func (repo *DbRepository) Update(cellValues map[string]interface{}) (error) {
 		whereSql = fmt.Sprintf("\"%s\"=$%d", pkCol.ColumnName, colCnt)
 		vals = append(vals, cellValues[pkCol.ColumnName])
 
-		cmdTxt := "UPDATE \"%s\".\"%s\" SET %s WHERE %s";
+		cmdTxt := "UPDATE \"%s\".\"%s\" SET %s WHERE %s"
 		cmdTxt = fmt.Sprintf(cmdTxt, repo.db.DefaultSchema, repo.TableName, setters, whereSql)
 		_, err = repo.db.Query(cmdTxt, vals...)
 	}
@@ -129,8 +134,38 @@ func (repo *DbRepository) Update(cellValues map[string]interface{}) (error) {
 	return err
 }
 
+func (repo *DbRepository) getIdentityColumns() ([]DataColumn, error) {
+
+	idCols := make([]DataColumn, 0)
+	var err error
+
+	for _, row := range *repo.tbModel.Rows {
+		var idCell DataCell
+		idCell, err = row.GetCell("isidentity")
+
+		if err == nil && idCell.GetValue() == true {
+			var idCol DataColumn
+
+			var fieldNameCell DataCell
+			var dataTypeCell DataCell
+
+			fieldNameCell, err = row.GetCell("fieldname")
+			if err == nil {
+				idCol.ColumnName = fieldNameCell.GetValue().(string)
+				dataTypeCell, err = row.GetCell("datatype")
+			}
+			if err == nil {
+				idCol.DataType = dataTypeCell.GetValue().(string)
+				idCols = append(idCols, idCol)
+			}
+		}
+	}
+
+	return idCols, err
+}
+
 func (repo *DbRepository) getPrimaryKeyColumn() (DataColumn, error) {
-	
+
 	var pkCol DataColumn
 	var err error
 
@@ -158,4 +193,25 @@ func (repo *DbRepository) getPrimaryKeyColumn() (DataColumn, error) {
 		err = fmt.Errorf("table \"%s\" does not have a primary key constraint", repo.TableName)
 	}
 	return pkCol, err
+}
+
+func (repo *DbRepository) Delete(cellValues map[string]interface{}) error {
+	var err error
+
+	var pkCol DataColumn
+	pkCol, err = repo.getPrimaryKeyColumn()
+
+	if err == nil {
+		if !utils.HasKey(cellValues, pkCol.ColumnName) {
+			err = errors.New("primary key column was not found in provided cellvalues")
+		}
+	}
+
+	if err == nil {
+		cmdTxt := "DELETE FROM \"%s\".\"%s\" WHERE \"%s\"=$1 "
+		cmdTxt = fmt.Sprintf(cmdTxt, repo.db.DefaultSchema, repo.TableName, pkCol.ColumnName)
+		_, err = repo.db.Query(cmdTxt, cellValues[pkCol.ColumnName])
+	}
+
+	return err
 }
