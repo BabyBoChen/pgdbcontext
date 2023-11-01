@@ -51,13 +51,21 @@ func (db *DbContext) Query(cmdTxt string, args ...interface{}) (*DataTable, erro
 
 	var dataTable DataTable
 	if err == nil {
+		var dataCols []DataColumn
+		colTypes, _ := rows.ColumnTypes()
+		colNames, _ := rows.Columns()
+		dataCols = make([]DataColumn, len(colNames))
+		for i := 0; i < len(colNames); i++ {
+			var col DataColumn
+			col.ColumnName = colNames[i]
+			col.DataType = colTypes[i].DatabaseTypeName()
+		}
+		dataTable.Columns = &dataCols
+
 		dataRows := make([]DataRow, 0)
 		dataTable.Rows = &dataRows
 
 		for rows.Next() {
-			colTypes, _ := rows.ColumnTypes()
-			colNames, _ := rows.Columns()
-
 			var dataRow DataRow
 			cells := make([]DataCell, len(colTypes))
 			cellValuePtrs := make([]interface{}, len(colTypes))
@@ -94,6 +102,7 @@ func (db *DbContext) Query(cmdTxt string, args ...interface{}) (*DataTable, erro
 
 const SPGetTbFldInfos string = `SELECT A.column_name::varchar as fieldname
 ,pg_catalog.col_description(E.oid,A.ordinal_position) as shortdesc
+,A.udt_name::varchar AS datatype
 ,coalesce(A.character_maximum_length,0)+coalesce(A.numeric_precision,0) as datalength
 ,coalesce(A.numeric_scale,0) as numericscale 
 ,CASE WHEN A.is_nullable='YES'
