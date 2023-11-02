@@ -46,8 +46,8 @@ func (repo *DbRepository) Insert(cellValues map[string]interface{}) (map[string]
 	}
 
 	idCols := ""
-	for i := 0; i < len(*repo.tbModel.Rows); i++ {
-		row := (*repo.tbModel.Rows)[i]
+	for i := 0; i < len(repo.tbModel.Rows); i++ {
+		row := repo.tbModel.Rows[i]
 		cell, cellErr := row.GetCell("isidentity")
 		if cellErr == nil {
 			if cell.GetValue() == true {
@@ -71,11 +71,11 @@ func (repo *DbRepository) Insert(cellValues map[string]interface{}) (map[string]
 	}
 
 	if err == nil {
-		if len(*dt.Rows) > 0 {
+		if len(dt.Rows) > 0 {
 			lastInsertedId = make(map[string]interface{})
-			row := (*dt.Rows)[0]
-			for i := range *row.Cells {
-				cell := (*row.Cells)[i]
+			row := dt.Rows[0]
+			for i := range row.Cells {
+				cell := row.Cells[i]
 				lastInsertedId[cell.Column.ColumnName] = cell.GetValue()
 			}
 		}
@@ -134,20 +134,68 @@ func (repo *DbRepository) Update(cellValues map[string]interface{}) error {
 	return err
 }
 
+func (repo *DbRepository) UpdateRow(row DataRow) error {
+	var err error
+
+	var pkCol DataColumn
+	pkCol, err = repo.getPrimaryKeyColumn()
+
+	var idCols []DataColumn
+	if err == nil {
+		idCols, err = repo.getIdentityColumns()
+	}
+
+	setters := ""
+	colCnt := 0
+	vals := make([]interface{}, 0)
+	if err == nil {
+		for _, cell := range row.Cells {
+			if cell.Column.ColumnName != pkCol.ColumnName && !ContainsColumn(idCols, cell.Column.ColumnName) {
+				colCnt += 1
+				if colCnt > 1 {
+					setters += ", "
+				}
+				setters += fmt.Sprintf("\"%s\"=$%d", cell.Column.ColumnName, colCnt)
+				vals = append(vals, cell.GetValue())
+			}
+		}
+		if len(setters) == 0 {
+			err = errors.New("no set clause in this operation")
+		}
+	}
+
+	var pkCell *DataCell
+	if err == nil {
+		pkCell, err = row.GetCell(pkCol.ColumnName)
+	}
+
+	whereSql := ""
+	if err == nil {
+		colCnt += 1
+		whereSql = fmt.Sprintf("\"%s\"=$%d", pkCol.ColumnName, colCnt)
+		vals = append(vals, pkCell.GetValue())
+		cmdTxt := "UPDATE \"%s\".\"%s\" SET %s WHERE %s"
+		cmdTxt = fmt.Sprintf(cmdTxt, repo.db.DefaultSchema, repo.TableName, setters, whereSql)
+		_, err = repo.db.Query(cmdTxt, vals...)
+	}
+
+	return err
+}
+
 func (repo *DbRepository) getIdentityColumns() ([]DataColumn, error) {
 
 	idCols := make([]DataColumn, 0)
 	var err error
 
-	for _, row := range *repo.tbModel.Rows {
-		var idCell DataCell
+	for _, row := range repo.tbModel.Rows {
+		var idCell *DataCell
 		idCell, err = row.GetCell("isidentity")
 
 		if err == nil && idCell.GetValue() == true {
 			var idCol DataColumn
 
-			var fieldNameCell DataCell
-			var dataTypeCell DataCell
+			var fieldNameCell *DataCell
+			var dataTypeCell *DataCell
 
 			fieldNameCell, err = row.GetCell("fieldname")
 			if err == nil {
@@ -171,13 +219,13 @@ func (repo *DbRepository) getPrimaryKeyColumn() (DataColumn, error) {
 
 	hasPkCol := false
 
-	for i := 0; i < len(*repo.tbModel.Rows); i++ {
-		row := (*repo.tbModel.Rows)[i]
+	for i := 0; i < len(repo.tbModel.Rows); i++ {
+		row := repo.tbModel.Rows[i]
 		cell, err := row.GetCell("isprimarykey")
 		if err == nil && cell.GetValue() == true {
 			hasPkCol = true
-			var cellFieldName DataCell
-			var cellDataType DataCell
+			var cellFieldName *DataCell
+			var cellDataType *DataCell
 			cellFieldName, err = row.GetCell("fieldname")
 			if err == nil {
 				pkCol.ColumnName = cellFieldName.GetValue().(string)

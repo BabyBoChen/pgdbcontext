@@ -43,15 +43,20 @@ func main() {
 		dt, err = repo.Select("title=$1", "鮭魚壽司")
 	}
 
+	var row *DataRow
+	var titleCell *DataCell
 	if err == nil {
-		if len(*dt.Rows) == 1 {
-			row := (*dt.Rows)[0]
-			rowMap := row.ToMap()
-			rowMap["unit_price"] = 30.00
-			err = repo.Delete(rowMap)
+		if len(dt.Rows) == 1 {
+			row = dt.Rows[0]
+			titleCell, err = row.GetCell("unit_price")
 		} else {
 			err = errors.New("not found")
 		}
+	}
+
+	if err == nil {
+		titleCell.SetValue(31.00)
+		repo.UpdateRow(*row)
 	}
 
 	if err == nil {

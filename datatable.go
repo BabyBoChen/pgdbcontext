@@ -8,8 +8,8 @@ import (
 
 type DataTable struct {
 	TableName string
-	Columns   *[]DataColumn
-	Rows      *[]DataRow
+	Columns   []DataColumn
+	Rows      []*DataRow
 }
 
 type DataColumn struct {
@@ -28,15 +28,15 @@ func ContainsColumn(cols []DataColumn, colName string) bool {
 }
 
 type DataRow struct {
-	Cells    *[]DataCell
+	Cells    []*DataCell
 	RowState DataRowState
 }
 
-func (row DataRow) GetCell(colName string) (DataCell, error) {
-	var cell DataCell
+func (row DataRow) GetCell(colName string) (*DataCell, error) {
+	var cell *DataCell
 	var err error
-	for i := 0; i < len(*row.Cells); i++ {
-		c := (*row.Cells)[i]
+	for i := 0; i < len(row.Cells); i++ {
+		c := row.Cells[i]
 		if c.Column.ColumnName == colName {
 			cell = c
 		}
@@ -49,8 +49,8 @@ func (row DataRow) GetCell(colName string) (DataCell, error) {
 
 func (row DataRow) ToMap() map[string]interface{} {
 	dict := make(map[string]interface{})
-	for i := 0; i < len(*row.Cells); i++ {
-		c := (*row.Cells)[i]
+	for i := 0; i < len(row.Cells); i++ {
+		c := row.Cells[i]
 		dict[c.Column.ColumnName] = c.GetValue()
 	}
 	return dict

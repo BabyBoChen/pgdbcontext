@@ -59,24 +59,22 @@ func (db *DbContext) Query(cmdTxt string, args ...interface{}) (*DataTable, erro
 			var col DataColumn
 			col.ColumnName = colNames[i]
 			col.DataType = colTypes[i].DatabaseTypeName()
+			dataCols[i] = col
 		}
-		dataTable.Columns = &dataCols
+		dataTable.Columns = dataCols
 
-		dataRows := make([]DataRow, 0)
-		dataTable.Rows = &dataRows
-
+		dataTable.Rows = make([]*DataRow, 0)
 		for rows.Next() {
 			var dataRow DataRow
-			cells := make([]DataCell, len(colTypes))
-			cellValuePtrs := make([]interface{}, len(colTypes))
-			dataRow.Cells = &cells
 			dataRow.RowState = Unchanged
-
+			cells := make([]*DataCell, len(colTypes))
+			cellValuePtrs := make([]interface{}, len(colTypes))
 			for i := 0; i < len(cells); i++ {
 				cell := CreateEmptyCell(colNames[i], colTypes[i].DatabaseTypeName())
-				cells[i] = *cell
+				cells[i] = cell
 				cellValuePtrs[i] = cell.GetCellValuePtr()
 			}
+			dataRow.Cells = cells
 			err = rows.Scan(cellValuePtrs...)
 
 			if err == nil {
@@ -84,9 +82,7 @@ func (db *DbContext) Query(cmdTxt string, args ...interface{}) (*DataTable, erro
 					cells[i].Row = &dataRow
 					cells[i].DerefValue()
 				}
-				r := *dataTable.Rows
-				r = append(r, dataRow)
-				dataTable.Rows = &r
+				dataTable.Rows = append(dataTable.Rows, &dataRow)
 			} else {
 				break
 			}
