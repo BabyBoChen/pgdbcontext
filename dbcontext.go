@@ -51,15 +51,15 @@ func (db *DbContext) Query(cmdTxt string, args ...interface{}) (*DataTable, erro
 
 	var dataTable DataTable
 	if err == nil {
-		var dataCols []DataColumn
+		var dataCols []*DataColumn
 		colTypes, _ := rows.ColumnTypes()
 		colNames, _ := rows.Columns()
-		dataCols = make([]DataColumn, len(colNames))
+		dataCols = make([]*DataColumn, len(colNames))
 		for i := 0; i < len(colNames); i++ {
 			var col DataColumn
 			col.ColumnName = colNames[i]
 			col.DataType = colTypes[i].DatabaseTypeName()
-			dataCols[i] = col
+			dataCols[i] = &col
 		}
 		dataTable.Columns = dataCols
 
@@ -105,7 +105,10 @@ const SPGetTbFldInfos string = `SELECT A.column_name::varchar as fieldname
 	THEN true
 	ELSE false
 	END AS isallownull
-,A.column_default as defaultvalue
+,CASE WHEN A.column_default IS NOT NULL AND A.is_identity='NO'
+	THEN A.column_default
+	ELSE 'NULL'
+	END AS defaultvalue
 ,CASE WHEN constraint_type='PRIMARY KEY'
 	THEN true
 	ELSE false

@@ -8,8 +8,22 @@ import (
 
 type DataTable struct {
 	TableName string
-	Columns   []DataColumn
+	Columns   []*DataColumn
 	Rows      []*DataRow
+}
+
+func (dt *DataTable) NewRow() *DataRow {
+	var row DataRow
+	row.Cells = make([]*DataCell, len(dt.Columns))
+	for i, col := range dt.Columns {
+		var cell DataCell
+		cell.cellValue = nil
+		cell.Column = col
+		cell.Row = &row
+		row.Cells[i] = &cell
+	}
+	row.RowState = Added
+	return &row
 }
 
 type DataColumn struct {

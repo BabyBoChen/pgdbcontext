@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 
 	_ "github.com/lib/pq"
@@ -14,6 +13,20 @@ func main() {
 	var repo *DbRepository
 	if err == nil {
 		repo, err = db.GetRepository("dish")
+	}
+
+	var newRow map[string]interface{}
+	if err == nil {
+		newRow, err = repo.NewRow()
+	}
+	if err == nil {
+		for k, v := range newRow {
+			fmt.Printf("%s: ", k)
+			fmt.Print(v)
+			fmt.Println()
+			fmt.Println("============================")
+		}
+
 	}
 
 	// if err == nil {
@@ -38,38 +51,41 @@ func main() {
 	// 	fmt.Println(lastInsertedId)
 	// }
 
-	var dt *DataTable
-	if err == nil {
-		dt, err = repo.Select("title=$1", "鮭魚壽司")
-	}
+	// var dt *DataTable
+	// if err == nil {
+	// 	dt, err = repo.Select("")
+	// }
 
-	var row *DataRow
-	var titleCell *DataCell
-	if err == nil {
-		if len(dt.Rows) == 1 {
-			row = dt.Rows[0]
-			titleCell, err = row.GetCell("unit_price")
-		} else {
-			err = errors.New("not found")
-		}
-	}
-
-	if err == nil {
-		titleCell.SetValue(31.00)
-		repo.UpdateRow(*row)
-	}
-
-	if err == nil {
-		err = db.Commit()
-	}
+	// var row *DataRow
+	// var titleCell *DataCell
+	// if err == nil {
+	// 	if len(dt.Rows) == 1 {
+	// 		row = dt.Rows[0]
+	// 		titleCell, err = row.GetCell("unit_price")
+	// 	} else {
+	// 		err = errors.New("not found")
+	// 	}
+	// }
 
 	// if err == nil {
-	// 	for i := 0; i < len(*dt.Rows); i++ {
-	// 		row := (*dt.Rows)[i]
-	// 		for j := 0; j < len(*row.Cells); j++ {
-	// 			cell := (*row.Cells)[j]
+	// 	titleCell.SetValue(31.05)
+	// 	repo.UpdateRow(*row)
+	// }
+
+	// if err == nil {
+	// 	err = db.Commit()
+	// }
+
+	// if err == nil {
+	// 	for _, row := range dt.Rows {
+	// 		for _, cell := range row.Cells {
+	// 			fmt.Printf("%s: ", cell.Column.ColumnName)
 	// 			fmt.Println(cell.GetValue())
 	// 		}
+	// 		fmt.Printf("row_state: %d", row.RowState)
+	// 		fmt.Println()
+	// 		fmt.Printf("===================")
+	// 		fmt.Println()
 	// 	}
 	// }
 

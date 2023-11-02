@@ -21,6 +21,50 @@ func (repo *DbRepository) Select(whereSql string, args ...interface{}) (*DataTab
 	return repo.db.Query(cmdTxt, args...)
 }
 
+func (repo *DbRepository) NewRow() (map[string]interface{}, error) {
+
+	newRow := make(map[string]interface{})
+	var err error
+
+	selectSql := "SELECT "
+	needComma := false
+	for _, fld := range repo.tbModel.Rows {
+		var fnCell *DataCell
+		var dfCell *DataCell
+		fnCell, err = fld.GetCell("fieldname")
+		if err == nil {
+			dfCell, err = fld.GetCell("defaultvalue")
+		}
+		if err == nil {
+			if needComma {
+				selectSql += ", "
+			}
+			selectSql += fmt.Sprintf("%s AS \"%s\"", dfCell.GetValue(), fnCell.GetValue())
+			needComma = true
+		} else {
+			break
+		}
+	}
+
+	var dt *DataTable
+	if err == nil {
+		dt, err = repo.db.Query(selectSql)
+	}
+
+	if err == nil {
+		if len(dt.Rows) != 1 {
+			err = errors.New("unable to create new row")
+		}
+	}
+
+	if err == nil {
+		row := dt.Rows[0]
+		newRow = row.ToMap()
+	}
+
+	return newRow, err
+}
+
 func (repo *DbRepository) Insert(cellValues map[string]interface{}) (map[string]interface{}, error) {
 
 	var lastInsertedId map[string]interface{}
@@ -199,10 +243,10 @@ func (repo *DbRepository) getIdentityColumns() ([]DataColumn, error) {
 
 			fieldNameCell, err = row.GetCell("fieldname")
 			if err == nil {
-				idCol.ColumnName = fieldNameCell.GetValue().(string)
 				dataTypeCell, err = row.GetCell("datatype")
 			}
 			if err == nil {
+				idCol.ColumnName = fieldNameCell.GetValue().(string)
 				idCol.DataType = dataTypeCell.GetValue().(string)
 				idCols = append(idCols, idCol)
 			}
@@ -228,10 +272,10 @@ func (repo *DbRepository) getPrimaryKeyColumn() (DataColumn, error) {
 			var cellDataType *DataCell
 			cellFieldName, err = row.GetCell("fieldname")
 			if err == nil {
-				pkCol.ColumnName = cellFieldName.GetValue().(string)
 				cellDataType, err = row.GetCell("datatype")
 			}
 			if err == nil {
+				pkCol.ColumnName = cellFieldName.GetValue().(string)
 				pkCol.DataType = cellDataType.GetValue().(string)
 			}
 			break
@@ -261,5 +305,12 @@ func (repo *DbRepository) Delete(cellValues map[string]interface{}) error {
 		_, err = repo.db.Query(cmdTxt, cellValues[pkCol.ColumnName])
 	}
 
+	return err
+}
+
+func (repo *DbRepository) DeleteWhere(whereSql string, args ...interface{}) error {
+	cmdTxt := "DELETE FROM \"%s\".\"%s\" WHERE (%s) "
+	cmdTxt = fmt.Sprintf(cmdTxt, repo.db.DefaultSchema, repo.TableName, whereSql)
+	_, err := repo.db.Query(cmdTxt, args...)
 	return err
 }
