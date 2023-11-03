@@ -1,4 +1,4 @@
-package main
+package dbcontext
 
 import (
 	"errors"
