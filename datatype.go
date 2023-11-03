@@ -1,4 +1,4 @@
-package dbcontext
+package pgdbcontext
 
 import (
 	"github.com/google/uuid"
