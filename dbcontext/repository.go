@@ -3,7 +3,8 @@ package dbcontext
 import (
 	"errors"
 	"fmt"
-	"pgsql/utils"
+
+	"github.com/BabyBoChen/pgdbcontext/utils"
 )
 
 type DbRepository struct {
