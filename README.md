@@ -38,5 +38,8 @@ err = repo.Update(map[string]interface{}{
 err = repo.Delete(map[string]interface{}{
     "pk_column": "must contains pk column",
 })
+
+//6. please don't forget to commit the transaction
+db.Commit()
 ~~~
 For more functionalities, please take a look at repository.go.
