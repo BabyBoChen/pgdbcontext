@@ -42,4 +42,4 @@ err = repo.Delete(map[string]interface{}{
 //6. please don't forget to commit the transaction
 db.Commit()
 ~~~
-For more functionalities, please take a look at repository.go.
+For more functionalities, please take a look at dbcontext.go.
